@@ -28,8 +28,8 @@ int main(int argc, const char *argv[]) {
     if (mpz_init_set_str(n, argv[1], 10) != 0) {
         fprintf(stderr, "Could not parse %s as an integer\n", argv[1]);
         exit(1);
-    } else if (mpz_sgn(n) >= 0) {
-        fputs("INDEX must be a non-negative integer", stderr);
+    } else if (mpz_sgn(n) < 0) {
+        fputs("INDEX must be a non-negative integer\n", stderr);
         exit(1);
     }
 
