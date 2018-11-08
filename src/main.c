@@ -38,14 +38,15 @@ int main(int argc, const char *argv[]) {
     //int core_count = sysconf(_SC_NPROCESSORS_ONLN);
     mpz_t lower;
     mpz_init_set_ui(lower, 2);
-    mpz_t upper, n;
-    mpz_init_set_ui(upper, 16);
-    mpz_init_set_ui(n, 15);
+    mpz_t upper;
+    mpz_init_set(upper, n);
+    mpz_add_ui(upper, upper, 1);
 
     mpq_t result;
     mpq_init(result);
 
     calculate_catalan_part(result, lower, upper, n);
 
-    gmp_printf("%Qf", result);
+    gmp_printf("%Qd", result);
+    printf("\n");
 }

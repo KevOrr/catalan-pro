@@ -14,7 +14,7 @@ void calculate_catalan_part(mpq_t result, const mpz_t lower, const mpz_t upper, 
         mpz_set(num, n);
         mpz_add(num, num, k);
 
-        mpq_set_z(denom, n);
+        mpq_set_z(denom, k);
 
         mpq_set_z(term, num);
         mpq_div(term, term, denom);
