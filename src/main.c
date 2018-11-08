@@ -3,6 +3,7 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include "catalan_bignum.h"
 
 #define EXITERROR() error_at_line(errno, errno, __FILE__, __LINE__, "pid %llu", (long long unsigned)getpid())
 const char *argv0;
@@ -34,4 +35,17 @@ int main(int argc, const char *argv[]) {
     }
 
     // Do multithreading stuff here...
+    //int core_count = sysconf(_SC_NPROCESSORS_ONLN);
+    mpz_t lower;
+    mpz_init_set_ui(lower, 2);
+    mpz_t upper, n;
+    mpz_init_set_ui(upper, 16);
+    mpz_init_set_ui(n, 15);
+
+    mpq_t result;
+    mpq_init(result);
+
+    calculate_catalan_part(result, lower, upper, n);
+
+    gmp_printf("%Qf", result);
 }
