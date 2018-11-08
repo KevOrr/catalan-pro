@@ -67,7 +67,7 @@ int main(int argc, const char *argv[]) {
     gmp_printf("%Qd", result);
     printf("\n");*/
 
-    
+
     // Do multithreading stuff here...
     int num_cores = get_nprocs_conf();
     if (num_cores < 0)
@@ -86,7 +86,7 @@ int main(int argc, const char *argv[]) {
     mpz_init(temp);
 
     mpz_t lower, upper;
-    mpz_inits(lower, upper, NULL);
+    mpz_init(lower);
     mpz_set_ui(upper, 2);
 
     struct args results[num_cores];
@@ -112,7 +112,8 @@ int main(int argc, const char *argv[]) {
             EXITERROR();
 
         /* gmp_printf("[%Zd .. %Zd) => %Qd\n", results[i].lower, results[i].upper, results[i].result); */
-        mpz_clears(results[i].lower, results[i].upper, NULL);
+        mpz_clear(results[i].lower);
+        mpz_clear(results[i].upper);
     }
 
     for (int i=1; i<num_cores; i++)

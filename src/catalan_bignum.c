@@ -7,7 +7,8 @@ void calculate_catalan_part(mpq_t result, const mpz_t lower, const mpz_t upper, 
     mpz_t num;
     mpz_init(num);
     mpq_t term, denom;
-    mpq_inits(term, denom, NULL);
+    mpq_init(term);
+    mpq_init(denom);
 
     mpz_t k;
     for (mpz_init_set(k, lower); mpz_cmp(k, upper) < 0; mpz_add_ui(k, k, 1)) {
@@ -23,6 +24,7 @@ void calculate_catalan_part(mpq_t result, const mpz_t lower, const mpz_t upper, 
         mpq_mul(result, result, term);
     }
 
-    mpz_clears(num, NULL);
-    mpq_clears(term, denom, NULL);
+    mpz_clear(num);
+    mpq_clear(term);
+    mpq_clear(denom);
 }

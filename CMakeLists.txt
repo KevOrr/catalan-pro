@@ -1,6 +1,8 @@
 cmake_minimum_required (VERSION 2.6)
 project (CatalanPro)
 
+add_definitions(-std=c11)
+
 include(CheckIncludeFiles)
 include(CheckLibraryExists)
 
