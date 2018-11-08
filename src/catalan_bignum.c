@@ -19,10 +19,10 @@ void calculate_catalan_part(mpq_t result, const mpz_t lower, const mpz_t upper, 
         mpq_set_z(term, num);
         mpq_div(term, term, denom);
 
-        mpq_canonicalize(term); // Profile this. It may be slowing down or speeding things up
+        // mpq_canonicalize(term); // Profile this. It may be slowing down or speeding things up
         mpq_mul(result, result, term);
     }
 
-    mpz_clear(num);
+    mpz_clears(num, NULL);
     mpq_clears(term, denom, NULL);
 }

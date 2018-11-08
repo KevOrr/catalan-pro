@@ -1,9 +1,14 @@
 #include <stdio.h>
-#include <gmp.h>
 #include <sys/sysinfo.h>
 #include <string.h>
 #include <stdlib.h>
+#include <error.h>
+#include <errno.h>
+#include <unistd.h>
+
 #include <pthread.h>
+#include <gmp.h>
+
 #include "catalan_bignum.h"
 
 #define EXITERROR() error_at_line(errno, errno, __FILE__, __LINE__, "pid %llu", (long long unsigned)getpid())
@@ -20,13 +25,13 @@ void usage(FILE* f, int err) {
 struct args
 {
     mpq_t result;
-    const mpz_t lower;
-    const mpz_t upper;
-    const mpz_t n;
+    mpz_t lower;
+    mpz_t upper;
+    mpz_t n;
 };
 
 void* catalan_wrapper(void * arg);
-void mpz_min(mpz_t dest, mpz_t a, mpz_t b);
+void mpz_min(mpz_t dest, const mpz_t a, const mpz_t b);
 
 int main(int argc, const char *argv[]) {
     argv0 = argv[0];
@@ -65,6 +70,8 @@ int main(int argc, const char *argv[]) {
     
     // Do multithreading stuff here...
     int num_cores = get_nprocs_conf();
+    if (num_cores < 0)
+        EXITERROR();
     //int num_cores = get_nprocs();
     //printf("Number of configured cores: %d\n", num_conf_cores);
     //printf("Number of cores: %d\n", num_cores);
@@ -72,38 +79,57 @@ int main(int argc, const char *argv[]) {
 
     mpz_t chunk_size;
     mpz_init(chunk_size);
-    mpz_add_si(chunk_size, n, num_cores);
-    mpz_add_si(chunk_size, chunk_size, -2);
-    mpz_div_si(chunk_size, chunk_size, num_cores);
+    mpz_sub_ui(chunk_size, n, 1);
+    mpz_cdiv_q_ui(chunk_size, chunk_size, num_cores);
 
-    struct args arg;
-    mpz_init_set(arg.n,n);
-
-    mpz_init_set_si(arg.upper, 2);
-    mpz_init(arg.lower);
-    mpq_init(arg.result);
     mpz_t temp;
     mpz_init(temp);
 
+    mpz_t lower, upper;
+    mpz_inits(lower, upper, NULL);
+    mpz_set_ui(upper, 2);
+
+    struct args results[num_cores];
+    pthread_t threads[num_cores];
+
     for(int i = 0; i < num_cores; i++)
     {
-        mpz_set(arg.lower, arg.upper);
-        mpz_add(arg.upper, arg.upper, chunk_size);
+        mpz_set(lower, upper);
+        mpz_add(upper, upper, chunk_size);
         mpz_add_ui(temp, n, 1);
-        mpz_min(arg.upper, temp, arg.upper);
+        mpz_min(upper, temp, upper);
 
+        mpz_init_set(results[i].n, n);
+        mpz_init_set(results[i].lower, lower);
+        mpz_init_set(results[i].upper, upper);
+        mpq_init(results[i].result);
+
+        pthread_create(&threads[i], NULL, catalan_wrapper, (void*)&results[i]);
     }
-    
+
+    for (int i=0; i<num_cores; i++) {
+        if (pthread_join(threads[i], NULL) != 0)
+            EXITERROR();
+
+        /* gmp_printf("[%Zd .. %Zd) => %Qd\n", results[i].lower, results[i].upper, results[i].result); */
+        mpz_clears(results[i].lower, results[i].upper, NULL);
+    }
+
+    for (int i=1; i<num_cores; i++)
+        mpq_mul(results[0].result, results[0].result, results[i].result);
+
+    gmp_printf("%Qd\n", results[0].result);
+
 }
 
 void* catalan_wrapper(void * arg)
 {
     struct args* arg_ptr = arg;
     calculate_catalan_part(arg_ptr->result, arg_ptr->lower, arg_ptr->upper, arg_ptr->n);
-    return NULL;
+    return arg;
 }
 
-void mpz_min(mpz_t dest, mpz_t a, mpz_t b)
+void mpz_min(mpz_t dest, const mpz_t a, const mpz_t b)
 {
     if(mpz_cmp(a,b) < 0)
         mpz_set(dest, a);
