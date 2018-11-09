@@ -1,20 +1,18 @@
 #include <stdio.h>
-#include <sys/sysinfo.h>
-#include <string.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <sys/sysinfo.h>
 #include <error.h>
 #include <errno.h>
-#include <unistd.h>
 
 #include <pthread.h>
 #include <gmp.h>
 
+#include "common.h"
 #include "catalan_bignum.h"
 
-#define EXITERROR() error_at_line(errno, errno, __FILE__, __LINE__, "pid %llu", (long long unsigned)getpid())
-const char *argv0;
-
-void usage(FILE* f, int err) {
+void usage(FILE *f, int err) {
     fprintf(f,
             "USAGE: %s INDEX\n\n"
             "Calculates the INDEXth Catalan number, using multiple threads.\n",
@@ -22,16 +20,17 @@ void usage(FILE* f, int err) {
     exit(err);
 }
 
-struct args
-{
-    mpq_t result;
-    mpz_t lower;
-    mpz_t upper;
-    mpz_t n;
-};
+void* catalan_wrapper(struct args * arg) {
+    calculate_catalan_part(arg->result, arg->lower, arg->upper, arg->n);
+    return arg;
+}
 
-void* catalan_wrapper(void * arg);
-void mpz_min(mpz_t dest, const mpz_t a, const mpz_t b);
+void mpz_min(mpz_t dest, const mpz_t a, const mpz_t b) {
+    if(mpz_cmp(a,b) < 0)
+        mpz_set(dest, a);
+    else
+        mpz_set(dest, b);
+}
 
 int main(int argc, const char *argv[]) {
     argv0 = argv[0];
@@ -68,14 +67,10 @@ int main(int argc, const char *argv[]) {
     printf("\n");*/
 
 
-    // Do multithreading stuff here...
+    // Split workload "equally" amongst all processors
     int num_cores = get_nprocs_conf();
     if (num_cores < 0)
         EXITERROR();
-    //int num_cores = get_nprocs();
-    //printf("Number of configured cores: %d\n", num_conf_cores);
-    //printf("Number of cores: %d\n", num_cores);
-
 
     mpz_t chunk_size;
     mpz_init(chunk_size);
@@ -89,51 +84,42 @@ int main(int argc, const char *argv[]) {
     mpz_init(lower);
     mpz_set_ui(upper, 2);
 
-    struct args results[num_cores];
+    struct args all_args[num_cores];
     pthread_t threads[num_cores];
+    /* clock_t times[num_cores]; */
 
-    for(int i = 0; i < num_cores; i++)
-    {
+    for(int i = 0; i < num_cores; i++) {
         mpz_set(lower, upper);
         mpz_add(upper, upper, chunk_size);
         mpz_add_ui(temp, n, 1);
         mpz_min(upper, temp, upper);
 
-        mpz_init_set(results[i].n, n);
-        mpz_init_set(results[i].lower, lower);
-        mpz_init_set(results[i].upper, upper);
-        mpq_init(results[i].result);
+        mpq_init(all_args[i].result);
+        mpz_init_set(all_args[i].lower, lower);
+        mpz_init_set(all_args[i].upper, upper);
+        mpz_init_set(all_args[i].n, n);
 
-        pthread_create(&threads[i], NULL, catalan_wrapper, (void*)&results[i]);
+        /* times[i] = clock(); */
+        pthread_create(&threads[i], NULL, (void*(*)(void*))catalan_wrapper, (void*)&all_args[i]);
     }
 
     for (int i=0; i<num_cores; i++) {
         if (pthread_join(threads[i], NULL) != 0)
             EXITERROR();
+        /* times[i] = clock() - times[i]; */
 
-        /* gmp_printf("[%Zd .. %Zd) => %Qd\n", results[i].lower, results[i].upper, results[i].result); */
-        mpz_clear(results[i].lower);
-        mpz_clear(results[i].upper);
+        /* gmp_printf( */
+        /*     "[%Zd .. %Zd) => [%f]\n", */
+        /*     all_args[i].lower, all_args[i].upper, all_args[i].result, */
+        /*     ((float)times[i])/CLOCKS_PER_SEC); */
+        mpz_clear(all_args[i].lower);
+        mpz_clear(all_args[i].upper);
+        mpz_clear(all_args[i].n);
     }
 
     for (int i=1; i<num_cores; i++)
-        mpq_mul(results[0].result, results[0].result, results[i].result);
+        mpq_mul(all_args[0].result, all_args[0].result, all_args[i].result);
 
-    gmp_printf("%Qd\n", results[0].result);
+    gmp_printf("%Qd\n", all_args[0].result);
 
-}
-
-void* catalan_wrapper(void * arg)
-{
-    struct args* arg_ptr = arg;
-    calculate_catalan_part(arg_ptr->result, arg_ptr->lower, arg_ptr->upper, arg_ptr->n);
-    return arg;
-}
-
-void mpz_min(mpz_t dest, const mpz_t a, const mpz_t b)
-{
-    if(mpz_cmp(a,b) < 0)
-        mpz_set(dest, a);
-    else
-        mpz_set(dest, b);
 }
