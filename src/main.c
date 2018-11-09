@@ -82,7 +82,7 @@ int main(int argc, const char *argv[]) {
 
     mpz_t lower, upper;
     mpz_init(lower);
-    mpz_set_ui(upper, 2);
+    mpz_init_set_ui(upper, 2);
 
     struct args all_args[num_cores];
     pthread_t threads[num_cores];
