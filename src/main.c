@@ -25,6 +25,7 @@ void* catalan_wrapper(struct args * arg) {
     return arg;
 }
 
+// Sets `dest` to the smaller of `a` or `b`
 void mpz_min(mpz_t dest, const mpz_t a, const mpz_t b) {
     if(mpz_cmp(a,b) < 0)
         mpz_set(dest, a);
@@ -51,48 +52,37 @@ int main(int argc, const char *argv[]) {
     }
 
 
-/*Test Code
-    mpz_t lower;
-    mpz_init_set_ui(lower, 2);
-    mpz_t upper;
-    mpz_init_set(upper, n);
-    mpz_add_ui(upper, upper, 1);
-
-    mpq_t result;
-    mpq_init(result);
-
-    calculate_catalan_part(result, lower, upper, n);
-
-    gmp_printf("%Qd", result);
-    printf("\n");*/
-
-
-    // Split workload "equally" amongst all processors
+    // Split workload "equally" amongst all processors: 1 thread per cpu
     int num_cores = get_nprocs_conf();
-    if (num_cores < 0)
+    if (num_cores <= 0) {
+        fputs("get_nprocs_conf() returned a non-positive result", stderr);
         EXITERROR();
+    }
 
+    // Calculate number of terms to go to each thread
     mpz_t chunk_size;
     mpz_init(chunk_size);
     mpz_sub_ui(chunk_size, n, 1);
     mpz_cdiv_q_ui(chunk_size, chunk_size, num_cores);
 
-    mpz_t temp;
-    mpz_init(temp);
+    mpz_t n_plus_1;
+    mpz_init(n_plus_1);
+    mpz_add_ui(n_plus_1, n, 1);
 
     mpz_t lower, upper;
     mpz_init(lower);
     mpz_init_set_ui(upper, 2);
 
+    // Args (and results) go in `all_args`
     struct args all_args[num_cores];
+    // Thread handles go in `threads`
     pthread_t threads[num_cores];
-    /* clock_t times[num_cores]; */
 
+    // Spawn threads
     for(int i = 0; i < num_cores; i++) {
         mpz_set(lower, upper);
         mpz_add(upper, upper, chunk_size);
-        mpz_add_ui(temp, n, 1);
-        mpz_min(upper, temp, upper);
+        mpz_min(upper, n_plus_1, upper);
 
         mpq_init(all_args[i].result);
         mpz_init_set(all_args[i].lower, lower);
@@ -106,20 +96,17 @@ int main(int argc, const char *argv[]) {
     for (int i=0; i<num_cores; i++) {
         if (pthread_join(threads[i], NULL) != 0)
             EXITERROR();
-        /* times[i] = clock() - times[i]; */
 
-        /* gmp_printf( */
-        /*     "[%Zd .. %Zd) => [%f]\n", */
-        /*     all_args[i].lower, all_args[i].upper, all_args[i].result, */
-        /*     ((float)times[i])/CLOCKS_PER_SEC); */
+        // We can deallocate these since we won't need them for the rest of the program
         mpz_clear(all_args[i].lower);
         mpz_clear(all_args[i].upper);
         mpz_clear(all_args[i].n);
     }
 
+    // Multiply all the partial results together
     for (int i=1; i<num_cores; i++)
         mpq_mul(all_args[0].result, all_args[0].result, all_args[i].result);
 
+    // Output the final result
     gmp_printf("%Qd\n", all_args[0].result);
-
 }
