@@ -2,6 +2,7 @@
 #include <future>
 #include <iostream>
 
+#include <stddef.h> // necessary for some old versions of gmp https://gcc.gnu.org/gcc-4.9/porting_to.html
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/sysinfo.h>
